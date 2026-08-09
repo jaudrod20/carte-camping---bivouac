@@ -1,0 +1,17 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB7RLqu2pStAR2EwAiLkO3LybZQYPkWkgo",
+  authDomain: "carte-camping---bivouac.firebaseapp.com",
+  projectId: "carte-camping---bivouac",
+  storageBucket: "carte-camping---bivouac.firebasestorage.app",
+  messagingSenderId: "765467244249",
+  appId: "1:765467244249:web:e4b084794567186e49b0c8"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
