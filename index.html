@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nos coins de camping & bivouac</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F3A2E;
+    --pine:#2F5233;
+    --amber:#E08E2B;
+    --ember:#C1502E;
+    --canvas:#EDE6D6;
+    --canvas-light:#F6F2E8;
+    --ink:#2B2620;
+  }
+  *{box-sizing:border-box;}
+  *:focus-visible{outline:2px solid var(--ember);outline-offset:2px;}
+  html,body{height:100%;margin:0;padding:0;overflow:hidden;
+    font-family:'Work Sans',sans-serif;color:var(--ink);background:var(--canvas);}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{height:100%;display:flex;flex-direction:column;}
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--forest);color:var(--canvas-light);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;flex-shrink:0;gap:12px;
+    border-bottom:3px dashed var(--amber);
+  }
+  header .title-block h1{
+    font-family:'Fraunces',serif;font-weight:600;font-style:italic;
+    font-size:22px;margin:0;line-height:1.1;
+  }
+  header .title-block p{margin:2px 0 0;font-size:12px;opacity:.75;letter-spacing:.02em;}
+  header .actions{display:flex;gap:8px;align-items:center;}
+  #menu-btn{display:none;}
+
+  button{font-family:inherit;cursor:pointer;border:none;}
+  .btn{
+    background:var(--amber);color:var(--ink);font-weight:600;
+    padding:10px 16px;border-radius:100px;font-size:14px;
+    transition:transform .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-1px);background:#EA9C3D;}
+  .btn.active{background:var(--ember);color:var(--canvas-light);}
+  .btn-ghost{
+    background:transparent;color:var(--canvas-light);border:1.5px solid rgba(246,242,232,.4);
+    padding:9px 14px;border-radius:100px;font-size:13px;font-weight:500;
+  }
+
+  /* ---------- Banner (type choice) ---------- */
+  #banner{
+    background:#FBEBD3;border-bottom:2px dashed var(--pine);
+    color:var(--pine);font-size:14px;font-weight:500;
+    padding:10px 20px;display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;row-gap:8px;flex-shrink:0;
+  }
+  #banner.hidden{display:none;}
+  .choice-buttons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .chip-btn{background:var(--amber);color:var(--ink);font-weight:600;padding:7px 14px;border-radius:100px;font-size:13px;}
+  .chip-btn:hover{background:#EA9C3D;}
+  .icon-btn{background:none;color:var(--pine);font-size:18px;line-height:1;padding:2px 8px;}
+
+  /* ---------- Main layout ---------- */
+  #main{flex:1;display:flex;min-height:0;position:relative;}
+  #sidebar{
+    width:300px;flex-shrink:0;background:var(--canvas);
+    border-right:2px dashed var(--pine);overflow-y:auto;
+    display:flex;flex-direction:column;
+  }
+  #filter-chips{display:flex;gap:6px;padding:12px 14px 0;flex-wrap:wrap;}
+  .filter-chip{background:var(--canvas-light);border:1.5px solid #D8CFB8;color:var(--ink);
+    padding:6px 12px;border-radius:100px;font-size:12.5px;font-weight:500;}
+  .filter-chip.active{background:var(--pine);color:var(--canvas-light);border-color:var(--pine);}
+
+  #camping-list{padding:14px;flex:1;}
+  .camping-card{
+    background:var(--canvas-light);border-left:4px solid var(--amber);
+    border-radius:6px;padding:10px 12px;margin-bottom:10px;cursor:pointer;
+    box-shadow:0 1px 2px rgba(43,38,32,.08);transition:transform .12s ease;
+  }
+  .camping-card.bivouac{border-left-color:var(--pine);}
+  .camping-card:hover{transform:translateX(2px);}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
+  .camping-card h4{margin:0;font-family:'Fraunces',serif;font-size:15px;font-weight:600;}
+  .camping-card .meta{margin:4px 0 0;font-size:12px;opacity:.7;}
+  .empty{font-size:13px;opacity:.65;line-height:1.5;padding:8px 4px;}
+  .flames-row{white-space:nowrap;}
+  .flames-row.small span{font-size:11px;}
+  .flame.dim{opacity:.22;filter:grayscale(1);}
+  #sidebar-footer{
+    padding:12px 16px;font-size:11.5px;line-height:1.5;opacity:.7;
+    border-top:1px dashed var(--pine);
+  }
+
+  #map{flex:1;min-width:0;}
+  #map.crosshair{cursor:crosshair;}
+
+  #legend{
+    position:absolute;left:12px;bottom:16px;background:var(--canvas-light);
+    padding:8px 14px;border-radius:8px;font-size:12px;
+    box-shadow:0 1px 4px rgba(0,0,0,.18);display:flex;gap:14px;z-index:500;
+  }
+
+  /* ---------- Form panel ---------- */
+  #form-panel{
+    position:fixed;left:0;right:0;bottom:0;background:var(--canvas-light);
+    border-top:3px dashed var(--pine);border-radius:16px 16px 0 0;
+    padding:18px 22px 22px;box-shadow:0 -6px 20px rgba(43,38,32,.2);
+    max-height:85vh;overflow-y:auto;z-index:1000;
+    transition:max-height .2s ease;
+  }
+  #form-panel.hidden{display:none;}
+  #form-panel.minimized{max-height:110px;overflow:hidden;}
+  #form-panel h2{font-family:'Fraunces',serif;font-size:19px;margin:0 0 10px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;}
+  .field input, .field textarea, .field select{
+    width:100%;padding:9px 11px;border-radius:8px;border:1.5px solid #D8CFB8;
+    font-family:'Work Sans',sans-serif;font-size:14px;background:#fff;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+
+  .address-row{display:flex;gap:8px;}
+  .address-row input{flex:1;}
+  .address-row button{background:var(--pine);color:var(--canvas-light);font-weight:600;
+    padding:9px 14px;border-radius:8px;font-size:13px;white-space:nowrap;}
+  .address-row button:disabled{opacity:.6;}
+  #address-results{margin-top:6px;display:flex;flex-direction:column;gap:4px;}
+  .addr-result{background:#fff;border:1px solid #D8CFB8;border-radius:6px;padding:8px 10px;
+    text-align:left;font-size:12.5px;color:var(--ink);}
+  .addr-result:hover{background:var(--canvas-light);border-color:var(--pine);}
+  .hint{font-size:12px;opacity:.75;margin:4px 0;line-height:1.5;}
+  .link-btn{background:none;color:var(--pine);text-decoration:underline;font-size:12px;padding:0;font-weight:500;}
+  .alt-location-row{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;}
+  #manual-coords{display:flex;gap:6px;margin-top:8px;}
+  #manual-coords.hidden{display:none;}
+  #location-confirm{font-size:12.5px;background:#E7F0E3;color:var(--pine);
+    padding:8px 10px;border-radius:6px;margin-top:8px;line-height:1.5;}
+  #location-confirm.hidden{display:none;}
+
+  .rating-row{display:flex;align-items:center;gap:10px;}
+  #rating-picker{display:flex;gap:2px;}
+  .flame-pick{font-size:26px;background:none;padding:2px;line-height:1;opacity:1;filter:none;
+    transition:opacity .1s ease, filter .1s ease, transform .1s ease;}
+  .flame-pick:hover{transform:scale(1.08);}
+  .flame-pick.dim{opacity:.22;filter:grayscale(1);}
+  #rating-label{font-size:13px;opacity:.7;font-weight:500;}
+
+  .hint.error{color:var(--ember);font-weight:600;}
+  .hint.error.hidden{display:none;}
+
+  #toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);
+    background:var(--forest);color:var(--canvas-light);padding:10px 20px;border-radius:100px;
+    font-size:13px;font-weight:500;opacity:0;pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;z-index:3000;
+    box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:80vw;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.show.error{background:var(--ember);}
+
+  .delete-btn.confirm{color:var(--canvas-light);background:var(--ember);
+    padding:5px 10px;border-radius:6px;text-decoration:none;font-weight:600;}
+  .amenities-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;margin-top:4px;}
+  .amenity-check{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:400;cursor:pointer;}
+  .amenity-check input{width:auto;margin:0;}
+  .form-actions{display:flex;gap:10px;margin-top:6px;}
+  .form-actions .btn-secondary{
+    background:transparent;color:var(--ink);text-decoration:underline;padding:10px 8px;font-weight:500;
+  }
+
+  /* ---------- Popup ---------- */
+  .leaflet-popup-content-wrapper{
+    background:var(--canvas-light);border-radius:8px;font-family:'Work Sans',sans-serif;
+  }
+  .leaflet-popup-tip{background:var(--canvas-light);}
+  .popup h3{font-family:'Fraunces',serif;margin:0 0 4px;font-size:16px;}
+  .popup .meta{font-size:11.5px;opacity:.7;margin:4px 0;}
+  .popup .comment{font-size:13px;margin:6px 0;line-height:1.4;}
+  .popup a{font-size:13px;color:var(--pine);}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0;}
+  .tag{background:#E4DCC4;color:var(--pine);font-size:11px;padding:3px 8px;border-radius:100px;font-weight:500;}
+  .popup .delete-btn{
+    display:block;margin-top:8px;background:none;color:var(--ember);
+    font-size:12px;padding:2px 0;text-decoration:underline;
+  }
+
+  /* ---------- Loading overlay ---------- */
+  #loading{
+    position:fixed;inset:0;background:var(--forest);color:var(--canvas-light);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;z-index:2000;font-family:'Fraunces',serif;font-size:16px;
+  }
+  #loading.hidden{display:none;}
+  .spinner{width:28px;height:28px;border:3px solid rgba(246,242,232,.25);
+    border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Mobile ---------- */
+  @media (max-width:800px){
+    #menu-btn{display:inline-flex;}
+    header .title-block p{display:none;}
+    #sidebar{
+      position:fixed;top:0;bottom:0;left:-320px;width:280px;z-index:1500;
+      transition:left .2s ease;box-shadow:4px 0 16px rgba(0,0,0,.25);
+      padding-top:56px;
+    }
+    #sidebar.open{left:0;}
+    #sidebar-overlay{
+      display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1400;
+    }
+    #sidebar-overlay.show{display:block;}
+    #form-panel{max-height:92vh;}
+    .amenities-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:480px){
+    .address-row{flex-direction:column;}
+    .address-row button{width:100%;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <button id="menu-btn" class="btn-ghost" onclick="toggleSidebar()">☰ Liste</button>
+    <div class="title-block">
+      <h1>🏕️ Nos coins de camping & bivouac</h1>
+      <p>Les spots qu'on a vraiment adorés</p>
+    </div>
+    <div class="actions">
+      <button id="add-btn" class="btn" onclick="toggleAdd()">+ Ajouter</button>
+    </div>
+  </header>
+
+  <div id="banner" class="hidden"></div>
+
+  <div id="main">
+    <div id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+    <aside id="sidebar">
+      <div id="filter-chips">
+        <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">Tout</button>
+        <button class="filter-chip" data-filter="camping" onclick="setFilter('camping')">⛺ Campings</button>
+        <button class="filter-chip" data-filter="bivouac" onclick="setFilter('bivouac')">🌲 Bivouacs</button>
+      </div>
+      <div id="camping-list"></div>
+      <div id="sidebar-footer">
+        🔒 Carte partagée : tout le monde qui a ce lien peut voir et ajouter des lieux ici.
+      </div>
+    </aside>
+    <div id="map"></div>
+    <div id="legend">
+      <span>⛺ Camping</span>
+      <span>🌲 Bivouac</span>
+    </div>
+  </div>
+
+  <div id="form-panel" class="hidden">
+    <h2 id="form-title">Ajouter</h2>
+
+    <div class="field">
+      <label for="input-address">Adresse postale</label>
+      <div class="address-row">
+        <input id="input-address" type="text" placeholder="Ex : 12 rue des Pins, 33120 Arcachon">
+        <button type="button" id="search-addr-btn" onclick="searchAddress()">🔍 Rechercher</button>
+      </div>
+      <div id="address-results"></div>
+      <div class="alt-location-row">
+        <button type="button" class="link-btn" onclick="enableMapClickFallback()">📍 ou cliquer sur la carte</button>
+        <button type="button" class="link-btn" onclick="toggleManualCoords()">🧭 ou entrer des coordonnées GPS</button>
+      </div>
+      <div id="manual-coords" class="hidden">
+        <input id="input-lat" type="number" step="any" placeholder="Latitude">
+        <input id="input-lng" type="number" step="any" placeholder="Longitude">
+        <button type="button" class="chip-btn" onclick="applyManualCoords()">Valider</button>
+      </div>
+      <p id="location-confirm" class="hidden"></p>
+      <p id="location-error" class="hint error hidden"></p>
+      <p class="hint">Recherche d'adresses via OpenStreetMap (Nominatim).</p>
+    </div>
+
+    <form id="camping-form" onsubmit="submitForm(event)">
+      <div class="field">
+        <label for="input-name">Nom / repère du lieu *</label>
+        <input id="input-name" type="text" required maxlength="80">
+      </div>
+      <div class="field">
+        <label for="input-author">Ton prénom *</label>
+        <input id="input-author" type="text" required maxlength="40" placeholder="Ex : Julie">
+      </div>
+      <div class="field">
+        <label>Coup de cœur</label>
+        <div class="rating-row">
+          <div id="rating-picker"></div>
+          <span id="rating-label" class="mono"></span>
+        </div>
+      </div>
+
+      <div id="dynamic-fields"></div>
+
+      <div class="field">
+        <label for="input-comment">Pourquoi vous avez aimé (optionnel)</label>
+        <textarea id="input-comment" maxlength="400" placeholder="Emplacement, ambiance, bord de rivière..."></textarea>
+      </div>
+      <div class="field">
+        <label for="input-link">Lien du site / infos (optionnel)</label>
+        <input id="input-link" type="url" placeholder="https://...">
+      </div>
+      <div class="form-actions">
+        <button type="submit" id="submit-btn" class="btn">Ajouter à la carte</button>
+        <button type="button" class="btn-secondary" onclick="cancelAdd()">Annuler</button>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>Chargement de la carte partagée…</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+  /* ======================================================================
+     CONFIGURATION FIREBASE — à remplacer par la vôtre.
+     Vous la trouverez dans : Firebase Console > Paramètres du projet
+     > Vos applications > icône Web (</>) > "firebaseConfig"
+     ====================================================================== */
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7RLqu2pStAR2EwAiLkO3LybZQYPkWkgo",
+    authDomain: "carte-camping---bivouac.firebaseapp.com",
+    projectId: "carte-camping---bivouac",
+    storageBucket: "carte-camping---bivouac.firebasestorage.app",
+    messagingSenderId: "765467244249",
+    appId: "1:765467244249:web:e4b084794567186e49b0c8"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const campingsRef = db.collection('campings');
+  /* ====================================================================== */
+
+  let campings = [];
+  let map;
+  let markers = {};
+  let filterType = 'all';
+
+  // add flow state
+  let addStep = null;        // null | 'choose' | 'form'
+  let pendingType = null;    // 'camping' | 'bivouac'
+  let pendingLatLng = null;
+  let currentRating = 5;
+  let tempMarker = null;
+  let mapClickFallbackActive = false;
+  let lastSearchResults = [];
+
+  const CAMPING_AMENITIES = [
+    ['piscine','Piscine'],
+    ['sanitaires','Sanitaires propres'],
+    ['restauration','Restauration sur place'],
+    ['epicerie','Épicerie / dépannage'],
+    ['wifi','Wifi'],
+    ['electricite','Électricité aux emplacements'],
+    ['ombrage','Emplacements ombragés'],
+    ['animaux','Animaux acceptés'],
+    ['jeux_enfants','Aire de jeux enfants'],
+    ['acces_eau','Accès direct mer/rivière/lac'],
+    ['location_materiel','Location vélos / canoës / SUP'],
+    ['camping_car','Accessible camping-car'],
+    ['calme','Ambiance calme'],
+    ['bar','Bar / soirées animées'],
+  ];
+
+  const BIVOUAC_AMENITIES = [
+    ['vue','Vue panoramique'],
+    ['point_eau',"Point d'eau à proximité"],
+    ['tolere','Bivouac toléré / autorisé'],
+    ['ombrage','Zone ombragée'],
+    ['reseau','Réseau mobile'],
+    ['acces_voiture','Accessible en voiture'],
+    ['isole','Isolé / tranquille'],
+    ['plat','Sol plat pour la tente'],
+    ['bois','Bois mort à proximité'],
+  ];
+
+  const CAMPING_PRICES = ['Gratuit','Économique (< 15€/nuit)','Moyen (15–30€/nuit)','Élevé (> 30€/nuit)','Je ne sais pas'];
+  const BIVOUAC_DIFFICULTY = ['Facile (accès direct)','Modérée (courte marche)','Difficile (randonnée)'];
+
+  async function init(){
+    initMap();
+    listenToCampings();
+    loadPseudo();
+  }
+
+  function listenToCampings(){
+    campingsRef.onSnapshot(
+      (snapshot) => {
+        campings = snapshot.docs.map(d => d.data());
+        renderAll();
+        document.getElementById('loading').classList.add('hidden');
+      },
+      (err) => {
+        console.error('Firestore error:', err);
+        document.getElementById('loading').classList.add('hidden');
+        showToast("Impossible de charger les données (vérifiez la configuration Firebase).", true);
+      }
+    );
+  }
+
+  function initMap(){
+    map = L.map('map', {zoomControl:true}).setView([46.6, 1.88], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    map.on('click', onMapClick);
+  }
+
+  function tentIcon(){
+    return L.divIcon({
+      className:'tent-marker',
+      html:`<svg width="28" height="38" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 2 L28 36 L2 36 Z" fill="#E08E2B" stroke="#2B2620" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M15 2 L21 36 L9 36 Z" fill="#C1502E" opacity="0.75"/>
+        <circle cx="15" cy="36" r="3" fill="#2B2620"/>
+      </svg>`,
+      iconSize:[28,38], iconAnchor:[14,36], popupAnchor:[0,-32]
+    });
+  }
+
+  function forestIcon(){
+    return L.divIcon({
+      className:'forest-marker',
+      html:`<svg width="26" height="38" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">
+        <rect x="13" y="30" width="4" height="7" fill="#4A3728"/>
+        <polygon points="15,1 22,14 18,14 25,23 20,23 27,31 3,31 10,23 5,23 12,14 8,14"
+          fill="#2F5233" stroke="#16261C" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>`,
+      iconSize:[26,38], iconAnchor:[13,36], popupAnchor:[0,-32]
+    });
+  }
+
+  function markerIcon(type){ return type === 'bivouac' ? forestIcon() : tentIcon(); }
+
+  function flames(rating){
+    let s = '';
+    for(let i=1;i<=5;i++) s += `<span class="flame ${i<=rating?'':'dim'}">🔥</span>`;
+    return s;
+  }
+
+  function amenityList(type){ return type === 'camping' ? CAMPING_AMENITIES : BIVOUAC_AMENITIES; }
+  function amenityLabel(type,key){
+    const found = amenityList(type).find(a => a[0] === key);
+    return found ? found[1] : key;
+  }
+  function amenityTags(c){
+    if(!c.amenities) return '';
+    const keys = Object.keys(c.amenities).filter(k => c.amenities[k]);
+    if(keys.length === 0) return '';
+    return `<div class="tags">${keys.map(k => `<span class="tag">${amenityLabel(c.type,k)}</span>`).join('')}</div>`;
+  }
+
+  function visibleCampings(){
+    return filterType === 'all' ? campings : campings.filter(c => c.type === filterType);
+  }
+
+  function addMarker(c){
+    const m = L.marker([c.lat, c.lng], {icon: markerIcon(c.type)}).addTo(map);
+    m.bindPopup(popupHtml(c));
+    markers[c.id] = m;
+  }
+
+  function popupHtml(c){
+    const extra = c.type === 'camping'
+      ? (c.price ? `<p class="meta">💶 ${escapeHtml(c.price)}</p>` : '')
+      : (c.difficulty ? `<p class="meta">🥾 ${escapeHtml(c.difficulty)}</p>` : '');
+    return `<div class="popup">
+      <h3>${c.type === 'bivouac' ? '🌲' : '⛺'} ${escapeHtml(c.name)}</h3>
+      <div class="flames-row">${flames(c.rating)}</div>
+      <p class="meta">Ajouté par ${escapeHtml(c.author)} · <span class="mono">${c.dateAdded}</span></p>
+      ${extra}
+      ${amenityTags(c)}
+      ${c.comment ? `<p class="comment">${escapeHtml(c.comment)}</p>` : ''}
+      ${c.link ? `<a href="${escapeAttr(c.link)}" target="_blank" rel="noopener">Voir le site →</a>` : ''}
+      <button class="delete-btn" data-id="${c.id}" onclick="deleteCamping('${c.id}')">Supprimer ce lieu</button>
+    </div>`;
+  }
+
+  function renderAll(){
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    markers = {};
+    visibleCampings().forEach(addMarker);
+    renderList();
+  }
+
+  function setFilter(type){
+    filterType = type;
+    document.querySelectorAll('.filter-chip').forEach(el => {
+      el.classList.toggle('active', el.dataset.filter === type);
+    });
+    renderAll();
+  }
+
+  function renderList(){
+    const list = document.getElementById('camping-list');
+    const items = visibleCampings();
+    if(items.length === 0){
+      list.innerHTML = `<p class="empty">Rien ici pour l'instant.<br>Cliquez sur « + Ajouter » pour le tout premier lieu !</p>`;
+      return;
+    }
+    const sorted = items.slice().sort((a,b)=> (b.dateAdded||'').localeCompare(a.dateAdded||''));
+    list.innerHTML = sorted.map(c => `
+      <div class="camping-card ${c.type === 'bivouac' ? 'bivouac' : ''}" onclick="focusCamping('${c.id}')">
+        <div class="card-top">
+          <h4>${c.type === 'bivouac' ? '🌲' : '⛺'} ${escapeHtml(c.name)}</h4>
+        </div>
+        <div class="flames-row small">${flames(c.rating)}</div>
+        <p class="meta">Par ${escapeHtml(c.author)}</p>
+      </div>`).join('');
+  }
+
+  function focusCamping(id){
+    const c = campings.find(x => x.id === id);
+    if(!c || !markers[id]) return;
+    map.flyTo([c.lat, c.lng], 13, {duration:0.8});
+    markers[id].openPopup();
+    if(window.innerWidth < 800) toggleSidebar(false);
+  }
+
+  /* ---------------- Add flow ---------------- */
+
+  function toggleAdd(){ addStep ? cancelAdd() : startAdd(); }
+
+  function startAdd(){
+    addStep = 'choose';
+    pendingType = null;
+    document.getElementById('add-btn').classList.add('active');
+    document.getElementById('add-btn').textContent = '✕ Annuler';
+    const banner = document.getElementById('banner');
+    banner.classList.remove('hidden');
+    banner.innerHTML = `
+      <span>Que voulez-vous ajouter ?</span>
+      <span class="choice-buttons">
+        <button class="chip-btn" onclick="chooseType('camping')">⛺ Camping</button>
+        <button class="chip-btn" onclick="chooseType('bivouac')">🌲 Bivouac</button>
+        <button class="icon-btn" onclick="cancelAdd()" aria-label="Annuler">✕</button>
+      </span>`;
+  }
+
+  function cancelAdd(){
+    addStep = null;
+    pendingType = null;
+    pendingLatLng = null;
+    mapClickFallbackActive = false;
+    document.getElementById('map').classList.remove('crosshair');
+    document.getElementById('banner').classList.add('hidden');
+    document.getElementById('add-btn').classList.remove('active');
+    document.getElementById('add-btn').textContent = '+ Ajouter';
+    document.getElementById('form-panel').classList.add('hidden');
+    document.getElementById('form-panel').classList.remove('minimized');
+    document.getElementById('camping-form').reset();
+    if(tempMarker){ map.removeLayer(tempMarker); tempMarker = null; }
+  }
+
+  function chooseType(type){
+    pendingType = type;
+    addStep = 'form';
+    document.getElementById('banner').classList.add('hidden');
+    openForm();
+  }
+
+  function openForm(){
+    document.getElementById('form-panel').classList.remove('hidden');
+    document.getElementById('form-title').textContent =
+      pendingType === 'camping' ? 'Ajouter — ⛺ Camping' : 'Ajouter — 🌲 Bivouac';
+    document.getElementById('input-name').placeholder =
+      pendingType === 'camping' ? 'Ex : Camping des Deux Lacs' : 'Ex : Clairière au-dessus du lac';
+
+    document.getElementById('input-address').value = '';
+    document.getElementById('address-results').innerHTML = '';
+    document.getElementById('location-confirm').classList.add('hidden');
+    document.getElementById('location-error').classList.add('hidden');
+    document.getElementById('manual-coords').classList.add('hidden');
+    document.getElementById('input-lat').value = '';
+    document.getElementById('input-lng').value = '';
+    pendingLatLng = null;
+    if(tempMarker){ map.removeLayer(tempMarker); tempMarker = null; }
+
+    renderTypeFields(pendingType);
+    buildRatingPicker();
+    document.getElementById('input-address').focus();
+  }
+
+  function renderTypeFields(type){
+    const box = document.getElementById('dynamic-fields');
+    const amenities = amenityList(type);
+    const selectHtml = type === 'camping'
+      ? `<div class="field"><label for="input-select">Tarif</label>
+          <select id="input-select">${CAMPING_PRICES.map(p=>`<option>${p}</option>`).join('')}</select></div>`
+      : `<div class="field"><label for="input-select">Difficulté d'accès</label>
+          <select id="input-select">${BIVOUAC_DIFFICULTY.map(p=>`<option>${p}</option>`).join('')}</select></div>`;
+    const checksHtml = `<div class="field"><label>${type === 'camping' ? 'Équipements' : 'Caractéristiques du lieu'}</label>
+      <div class="amenities-grid">
+        ${amenities.map(([key,label]) => `
+          <label class="amenity-check">
+            <input type="checkbox" data-amenity="${key}"> ${label}
+          </label>`).join('')}
+      </div></div>`;
+    box.innerHTML = selectHtml + checksHtml;
+  }
+
+  function buildRatingPicker(){
+    const el = document.getElementById('rating-picker');
+    el.innerHTML = '';
+    for(let i=1;i<=5;i++){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'flame-pick';
+      b.textContent = '🔥';
+      b.addEventListener('click', () => setRating(i));
+      b.addEventListener('mouseenter', () => previewRating(i));
+      b.addEventListener('mouseleave', () => previewRating(currentRating));
+      el.appendChild(b);
+    }
+    setRating(3);
+  }
+
+  function previewRating(n){
+    document.querySelectorAll('#rating-picker .flame-pick').forEach((el,i)=>{
+      el.classList.toggle('dim', i >= n);
+    });
+  }
+
+  function setRating(n){
+    currentRating = n;
+    previewRating(n);
+    document.getElementById('rating-label').textContent = n + '/5';
+  }
+
+  /* ---------------- Location: address / map / GPS ---------------- */
+
+  async function searchAddress(){
+    const q = document.getElementById('input-address').value.trim();
+    if(!q) return;
+    const btn = document.getElementById('search-addr-btn');
+    const results = document.getElementById('address-results');
+    btn.disabled = true;
+    btn.textContent = 'Recherche…';
+    results.innerHTML = '';
+    try{
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      if(!res.ok) throw new Error('bad response');
+      const data = await res.json();
+      lastSearchResults = data;
+      if(!data.length){
+        results.innerHTML = `<p class="hint">Aucun résultat pour cette adresse. Essayez d'être plus précis, ou <button type="button" class="link-btn" onclick="enableMapClickFallback()">cliquez sur la carte</button>.</p>`;
+      } else {
+        results.innerHTML = data.map((r,i) =>
+          `<button type="button" class="addr-result" onclick="pickAddressResult(${i})">${escapeHtml(r.display_name)}</button>`
+        ).join('');
+      }
+    }catch(err){
+      results.innerHTML = `<p class="hint">Recherche indisponible pour le moment. <button type="button" class="link-btn" onclick="enableMapClickFallback()">Cliquez sur la carte</button> ou entrez des coordonnées GPS ci-dessous.</p>`;
+    }finally{
+      btn.disabled = false;
+      btn.textContent = '🔍 Rechercher';
+    }
+  }
+
+  function pickAddressResult(i){
+    const r = lastSearchResults[i];
+    if(!r) return;
+    setLocation(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+    document.getElementById('address-results').innerHTML = '';
+  }
+
+  function enableMapClickFallback(){
+    mapClickFallbackActive = true;
+    document.getElementById('map').classList.add('crosshair');
+    document.getElementById('form-panel').classList.add('minimized');
+    document.getElementById('address-results').innerHTML =
+      `<p class="hint">Cliquez sur la carte à l'emplacement souhaité…</p>`;
+  }
+
+  function onMapClick(e){
+    if(!mapClickFallbackActive) return;
+    mapClickFallbackActive = false;
+    document.getElementById('map').classList.remove('crosshair');
+    document.getElementById('form-panel').classList.remove('minimized');
+    setLocation(e.latlng.lat, e.latlng.lng, null);
+    document.getElementById('address-results').innerHTML = '';
+  }
+
+  function toggleManualCoords(){
+    document.getElementById('manual-coords').classList.toggle('hidden');
+  }
+
+  function applyManualCoords(){
+    const lat = parseFloat(document.getElementById('input-lat').value);
+    const lng = parseFloat(document.getElementById('input-lng').value);
+    if(isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180){
+      showLocationError('Coordonnées invalides. Vérifiez les valeurs (latitude entre -90 et 90, longitude entre -180 et 180).');
+      return;
+    }
+    setLocation(lat, lng, null);
+  }
+
+  function showLocationError(msg){
+    const el = document.getElementById('location-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function hideLocationError(){
+    document.getElementById('location-error').classList.add('hidden');
+  }
+
+  function showToast(msg, isError){
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = isError ? 'show error' : 'show';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.className = ''; }, 3200);
+  }
+
+  function setLocation(lat, lng, label){
+    pendingLatLng = {lat, lng};
+    hideLocationError();
+    const el = document.getElementById('location-confirm');
+    el.classList.remove('hidden');
+    el.innerHTML = `✅ Emplacement défini${label ? ' : ' + escapeHtml(label) : ''}<br>
+      <span class="mono">${lat.toFixed(5)}, ${lng.toFixed(5)}</span> — glissez le repère sur la carte pour l'ajuster si besoin.`;
+    placeTempMarker(lat, lng);
+  }
+
+  function placeTempMarker(lat, lng){
+    if(tempMarker) map.removeLayer(tempMarker);
+    tempMarker = L.marker([lat, lng], {draggable:true, icon: markerIcon(pendingType)}).addTo(map);
+    tempMarker.on('dragend', () => {
+      const pos = tempMarker.getLatLng();
+      pendingLatLng = {lat: pos.lat, lng: pos.lng};
+      const el = document.getElementById('location-confirm');
+      el.innerHTML = `✅ Emplacement ajusté<br><span class="mono">${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</span>`;
+    });
+    map.flyTo([lat, lng], 14, {duration:0.6});
+  }
+
+  /* ---------------- Submit / delete ---------------- */
+
+  async function submitForm(e){
+    e.preventDefault();
+    if(!pendingLatLng){
+      showLocationError("Merci d'indiquer l'emplacement : recherchez une adresse, cliquez sur la carte, ou entrez des coordonnées GPS.");
+      document.getElementById('input-address').scrollIntoView({block:'center', behavior:'smooth'});
+      document.getElementById('input-address').focus();
+      return;
+    }
+    hideLocationError();
+    const name = document.getElementById('input-name').value.trim();
+    const author = document.getElementById('input-author').value.trim();
+    const comment = document.getElementById('input-comment').value.trim();
+    const link = document.getElementById('input-link').value.trim();
+    const selectValue = document.getElementById('input-select').value;
+    if(!name || !author) return;
+
+    const amenities = {};
+    document.querySelectorAll('#dynamic-fields input[data-amenity]').forEach(cb => {
+      amenities[cb.dataset.amenity] = cb.checked;
+    });
+
+    const newCamping = {
+      id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      type: pendingType,
+      name, author, comment, link,
+      rating: currentRating || 1,
+      amenities,
+      lat: pendingLatLng.lat,
+      lng: pendingLatLng.lng,
+      dateAdded: new Date().toISOString().slice(0,10)
+    };
+    if(pendingType === 'camping') newCamping.price = selectValue;
+    else newCamping.difficulty = selectValue;
+
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enregistrement…';
+
+    try{
+      await campingsRef.doc(newCamping.id).set(newCamping);
+      savePseudo(author);
+      cancelAdd();
+      showToast('Lieu ajouté à la carte 🎉');
+    }catch(err){
+      console.error(err);
+      showLocationError("Impossible d'enregistrer ce lieu, réessayez dans un instant.");
+    }finally{
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Ajouter à la carte';
+    }
+  }
+
+  let deleteConfirmId = null;
+  let deleteConfirmTimer = null;
+
+  function deleteCamping(id){
+    if(deleteConfirmId === id){
+      clearTimeout(deleteConfirmTimer);
+      deleteConfirmId = null;
+      performDelete(id);
+      return;
+    }
+    deleteConfirmId = id;
+    document.querySelectorAll(`.delete-btn[data-id="${id}"]`).forEach(b => {
+      b.textContent = 'Confirmer la suppression ?';
+      b.classList.add('confirm');
+    });
+    clearTimeout(deleteConfirmTimer);
+    deleteConfirmTimer = setTimeout(() => {
+      deleteConfirmId = null;
+      document.querySelectorAll(`.delete-btn[data-id="${id}"]`).forEach(b => {
+        b.textContent = 'Supprimer ce lieu';
+        b.classList.remove('confirm');
+      });
+    }, 4000);
+  }
+
+  async function performDelete(id){
+    try{
+      await campingsRef.doc(id).delete();
+      showToast('Lieu supprimé.');
+    }catch(err){
+      console.error(err);
+      showToast('Impossible de supprimer, réessayez.', true);
+    }
+  }
+
+  function loadPseudo(){
+    const name = localStorage.getItem('camping-pseudo');
+    if(name) document.getElementById('input-author').value = name;
+  }
+  function savePseudo(name){
+    localStorage.setItem('camping-pseudo', name);
+  }
+
+  function toggleSidebar(force){
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    const open = force === undefined ? !sb.classList.contains('open') : force;
+    sb.classList.toggle('open', open);
+    ov.classList.toggle('show', open);
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+</body>
+</html>
